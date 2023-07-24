@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple Microwave UI</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #app {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        div {
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:last-child {
+            margin-right: 0;
+        }
+
+        button.cancel {
+            background-color: red;
+        }
+    </style>
+</head>
+
+<body>
+<div id="app">
+    <h1>Microwave</h1>
+    <div>
+        <p>Status: {{ microwaveStatus }}</p>
+        <p>Power Level: {{ powerLevel }}</p>
+        <p>Counter: {{ counter }}</p>
+    </div>
+    <div>
+        <button @click="adjustPowerLevel(1)">Increase Power</button>
+        <button @click="adjustPowerLevel(-1)" :disabled="powerLevel === 0">Decrease Power</button>
+        <button @click="adjustCounter(10)">+10 Seconds</button>
+        <button @click="adjustCounter(-10)" :disabled="counter === 0">-10 Seconds</button>
+        <button class="cancel" @click="cancel">Cancel</button>
+    </div>
+</div>
+
+<script>
+    new Vue({
+        el: "#app",
+        data: {
+            powerLevel: 0,
+            counter: 0,
+            on: false
+        },
+        computed: {
+            microwaveStatus() {
+                return this.on ? "ON" : "OFF";
+            },
+        },
+        methods: {
+            adjustPowerLevel(amount) {
+                const apiUrl = "http://localhost:8000/microwave/power/";
+                const requestBody = {"power": amount}
+
+                fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(requestBody),
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        this.powerLevel = data.power
+                        this.on = data.on
+                        console.log("Microwave state updated successfully:", data);
+                    })
+                    .catch((error) => {
+                        console.error("Error updating microwave state:", error);
+                    });
+                ;
+            },
+            adjustCounter(amount) {
+                const apiUrl = "http://localhost:8000/microwave/counter/";
+                const requestBody = {"counter": amount}
+
+                fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(requestBody),
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        this.counter = data.counter
+                        this.on = data.on
+                        console.log("Microwave state updated successfully:", data);
+                    })
+                    .catch((error) => {
+                        console.error("Error updating microwave state:", error);
+                    });
+                ;
+            },
+            cancel() {
+                const apiUrl = "http://localhost:8000/microwave/cancel/";
+
+                fetch(apiUrl, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        // I left that for testing purposes
+                        // "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTAxNjg0MTIsInN1YiI6InJAZXhhbXBsZS5jb20ifQ.nFF7ceUlsbTrNlhyyNMbeEnh2aZFpYG9AagnOPvBN-c",
+                    },
+                    body: JSON.stringify({}),
+                })
+                    .then((response) => {
+                        if (response.status === 401) {
+                            alert("Not authorized to do that!")
+                            throw new Error(`Network response was not ok: ${response.status}`);
+                        }
+                        response.json()
+                    })
+                    .then((data) => {
+                        this.powerLevel = data.power;
+                        this.counter = data.counter;
+                        this.on = data.on
+                        console.log("Microwave state updated successfully:", data);
+                    })
+                    .catch((error) => {
+                        console.error("Error updating microwave state:", error);
+                    });
+                ;
+            },
+            fetchInitialState() {
+                const apiUrl = "http://localhost:8000/microwave/";
+                fetch(apiUrl)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        // Set the initial state with the data received from the backend
+                        this.powerLevel = data.power;
+                        this.counter = data.counter;
+                        this.on = data.on
+                    })
+                    .catch((error) => {
+                        console.error("Error fetching initial state:", error);
+                    });
+            },
+        },
+        mounted() {
+            this.fetchInitialState();
+        },
+    });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "fastapi-project"
+version = "0.1.0"
+description = ""
+authors = ["Robert Torbiczuk <robert.torbiczuk@gmail.com>"]
+readme = "README.md"
+packages = [{include = "fastapi_project"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+fastapi = "^0.100.0"
+pydantic = "^2.0.3"
+uvicorn = "^0.23.1"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+aioredis = "^2.0.1"
+redis = "^4.6.0"
+python-dotenv = "^1.0.0"
+passlib = "^1.7.4"
+python-multipart = "^0.0.6"
+pydantic-settings = "^2.0.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
