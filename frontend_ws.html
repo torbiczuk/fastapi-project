@@ -74,15 +74,13 @@
 </div>
 
 <script>
-
-
     new Vue({
         el: "#app",
         data: {
             microwave: {
-                on: true,
-                power: 100,
-                counter: 100
+                on: false,
+                power: 0,
+                counter: 0
             },
             connection: null
         },
@@ -92,36 +90,12 @@
             },
         },
         methods: {
-            makeSocketConnection() {
-                // console.log("Starting connection to WebSocket Server")
-                const socket = new WebSocket('ws://localhost:8000/microwave/ws/');
-                console.log(this.microwave)
-                this.connection = socket
-
-                this.connection.onmessage = (event) => {
-                    const state = JSON.parse(event.data);
-                    // console.log(state)
-                    // console.log(this.microwave.on)
-                    // console.log(this.microwave.power)
-                    // console.log(this.microwave.counter)
-                    this.microwave.on = state.on;
-                    this.microwave.power = state.power;
-                    this.microwave.counter = state.counter;
-                }
-
-                this.connection.onopen = () => {
-                    // console.log(event)
-                    // console.log("Successfully connected to the echo websocket server...")
-                    this.connection.send(JSON.stringify({ action: 'get_initial_state' }));
-                }
-            },
             adjustPowerLevel(amount) {
                 console.log(amount)
                 this.microwave.power += amount;
                 this.updateMicrowaveState();
             },
             adjustCounter(amount) {
-                console.log(amount)
                 this.microwave.counter += amount;
                 this.updateMicrowaveState();
             },
@@ -134,12 +108,22 @@
                 this.updateMicrowaveState();
             },
             updateMicrowaveState() {
-                // Send the updated microwave state to the server via WebSocket
-                this.connection.send(JSON.stringify(this.microwave));
+                // Check if the WebSocket connection is open before sending data
+                if (this.connection.readyState === WebSocket.OPEN) {
+                    console.log(JSON.stringify(this.microwave))
+                    this.connection.send(JSON.stringify(this.microwave));
+                }
             }
         },
         mounted() {
-            this.makeSocketConnection();
+            this.connection = new WebSocket('ws://localhost:8000/ws/microwave/');
+            this.connection.onmessage = (event) => {
+                const state = JSON.parse(event.data);
+                this.microwave.on = state.on
+                this.microwave.power = state.power
+                this.microwave.counter = state.counter
+            };
+
         },
     });
 </script>
