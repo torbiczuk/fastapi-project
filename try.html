@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple Microwave UI</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #app {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        div {
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:last-child {
+            margin-right: 0;
+        }
+
+        button.cancel {
+            background-color: red;
+        }
+    </style>
+</head>
+
+<body>
+<div id="app">
+    <h1>Microwave</h1>
+    <div>
+        <p>Status: {{ microwaveStatus }}</p>
+        <p>Power Level: {{ microwave.power }}</p>
+        <p>Counter: {{ microwave.counter }}</p>
+    </div>
+    <div>
+        <button @click="adjustPowerLevel(1)">Increase Power</button>
+        <button @click="adjustPowerLevel(-1)" :disabled="microwave.power === 0">Decrease Power</button>
+        <button @click="adjustCounter(10)">+10 Seconds</button>
+        <button @click="adjustCounter(-10)" :disabled="microwave.counter === 0">-10 Seconds</button>
+        <button class="cancel" @click="cancel">Cancel</button>
+    </div>
+</div>
+
+<script>
+
+    new Vue({
+        el: "#app",
+        data: {
+            microwave: {
+                on: false,
+                power: 0,
+                counter: 0
+            },
+            connection: null
+        },
+        computed: {
+            microwaveStatus() {
+                return this.microwave.on ? "ON" : "OFF";
+            },
+        },
+        created: function() {
+            console.log("Starting connection to WebSocket Server")
+            this.connection = new WebSocket('ws://localhost:8000/microwave/ws/');
+
+            this.connection.onmessage = function(event) {
+                const state = JSON.parse(event.data);
+                console.log(state)
+                this.on = state.on;
+                this.power = state.power;
+                this.counter = state.counter;
+            }
+
+            this.connection.onopen = function(event) {
+                console.log(event)
+                console.log("Successfully connected to the echo websocket server...")
+            }
+
+        },
+        methods: {
+            adjustPowerLevel(amount) {
+                console.log(amount)
+                this.microwave.power += amount;
+                this.updateMicrowaveState();
+            },
+            adjustCounter(amount) {
+                console.log(amount)
+                this.microwave.counter += amount;
+                this.updateMicrowaveState();
+            },
+            cancel() {
+                // Implement JWT token validation for the Cancel action here
+                // For simplicity, we'll just clear the microwave state
+                this.microwave.on = false;
+                this.microwave.power = 0;
+                this.microwave.counter = 0;
+                this.updateMicrowaveState();
+            },
+            updateMicrowaveState() {
+                // Send the updated microwave state to the server via WebSocket
+                this.connection.send(JSON.stringify(this.microwave));
+            }
+        }
+    });
+</script>
+</body>
+
+</html>

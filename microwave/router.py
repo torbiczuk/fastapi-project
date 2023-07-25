@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
+import asyncio
+import json
+
+from fastapi import APIRouter, HTTPException, Depends, WebSocket
 from redis import Redis
 
 from auth.dependencies import get_current_user
@@ -16,7 +19,7 @@ def get_redis_client():
     return redis_client
 
 
-def get_microwave_state(redis: Redis = Depends(get_redis_client)):
+async def get_microwave_state(redis: Redis = Depends(get_redis_client)) -> MicrowaveState:
     state_data = redis.get("microwave_state")
     if state_data:
         return MicrowaveState.model_validate_json(state_data)
@@ -68,4 +71,47 @@ def counter(request: CounterRequest, microwave_state: MicrowaveState = Depends(g
 def cancel(user: SystemUser = Depends(get_current_user)):
     state = MicrowaveState()
     return update_microwave_state(state)
+
+
+
+
+websockets = set()
+
+async def broadcast_status(redis):
+    while True:
+        await asyncio.sleep(10)  # Wait for 10 seconds
+        state = await get_microwave_state(redis)
+
+        # Send the current status to all connected clients
+        for websocket in websockets:
+            await websocket.send_json(state.model_dump_json())
+
+
+
+@router.websocket("/ws/")
+async def websocket_endpoint(websocket: WebSocket, redis: Redis = Depends(get_redis_client)):
+    await websocket.accept()
+    websockets.add(websocket)
+    # Start the status update broadcasting in the background
+    loop = asyncio.get_event_loop()
+    loop.create_task(broadcast_status(redis))
+    while True:
+        state = await get_microwave_state(redis)
+
+        await websocket.send_json(state.model_dump_json())
+        await asyncio.sleep(1)
+
+        # receive from client
+        message = await websocket.receive_text()
+        json_message = json.loads(message)
+        print(json_message)
+        if json_message.get('action'):
+            print('send to front')
+            print(state.model_dump_json())
+            await websocket.send_json(state.model_dump_json())
+        else:
+            new_state = MicrowaveState.model_validate_json(message)
+            print(new_state)
+            update_microwave_state(new_state)
+
 
