@@ -82,7 +82,9 @@
                 power: 0,
                 counter: 0
             },
-            connection: null
+            connection: null,
+            accessToken: '',
+            refreshToken: ''
         },
         computed: {
             microwaveStatus() {
@@ -93,11 +95,11 @@
             adjustPowerLevel(amount) {
                 console.log(amount)
                 this.microwave.power += amount;
-                this.updateMicrowaveState();
+                this.updateMicrowaveState('update');
             },
             adjustCounter(amount) {
                 this.microwave.counter += amount;
-                this.updateMicrowaveState();
+                this.updateMicrowaveState('update');
             },
             cancel() {
                 // Implement JWT token validation for the Cancel action here
@@ -105,17 +107,42 @@
                 this.microwave.on = false;
                 this.microwave.power = 0;
                 this.microwave.counter = 0;
-                this.updateMicrowaveState();
+                this.updateMicrowaveState('cancel');
             },
-            updateMicrowaveState() {
+            updateMicrowaveState(action = null) {
                 // Check if the WebSocket connection is open before sending data
                 if (this.connection.readyState === WebSocket.OPEN) {
-                    console.log(JSON.stringify(this.microwave))
-                    this.connection.send(JSON.stringify(this.microwave));
+                    const jsonToSend = JSON.stringify(Object.assign({}, this.microwave, {
+                        access_token: this.accessToken,
+                        action: action
+                    }))
+                    console.log(jsonToSend)
+                    this.connection.send(jsonToSend);
                 }
+            },
+            getValidToken(username, password) {
+                const apiUrl = 'http://localhost:8000/login'
+                fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        'accept': 'application/json',
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: 'username='+ encodeURI(username) + "&" + 'password=' + encodeURI(password),
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        this.accessToken = data.access_token
+                        this.refreshToken = data.refresh_token
+                    })
+                    .catch((error) => {
+                        console.error("Something goes wrong", error);
+                    });
             }
         },
         mounted() {
+            this.getValidToken('r@example.com', '12345');
+
             this.connection = new WebSocket('ws://localhost:8000/ws/microwave/');
             this.connection.onmessage = (event) => {
                 const state = JSON.parse(event.data);
@@ -123,7 +150,6 @@
                 this.microwave.power = state.power
                 this.microwave.counter = state.counter
             };
-
         },
     });
 </script>

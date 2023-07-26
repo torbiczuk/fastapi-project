@@ -1,16 +1,18 @@
+from uuid import uuid4
+
 from fastapi import status, HTTPException, Depends, APIRouter
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
-from auth.schemas import UserOut, UserAuth, TokenSchema, SystemUser
+from fastapi.security import OAuth2PasswordRequestForm
+
 from auth.db import DATABASE
+from auth.dependencies import validate_access_token, validate_refresh_token
+from auth.schemas import UserOut, UserAuth, TokenSchema
 from auth.utils import (
     get_hashed_password,
     create_access_token,
     create_refresh_token,
     verify_password
 )
-from uuid import uuid4
-from auth.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -53,12 +55,19 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Incorrect email or password"
         )
 
-    return {
-        "access_token": create_access_token(user['email']),
-        "refresh_token": create_refresh_token(user['email']),
-    }
+    access_token = create_access_token(user['email'])
+    refresh_token = create_refresh_token(user['email'])
+    response_model = TokenSchema(access_token=access_token, refresh_token=refresh_token)
+    return response_model
 
 
-@router.get('/me', summary='Get details of currently logged in user', response_model=UserOut)
-async def get_me(user: SystemUser = Depends(get_current_user)):
-    return user
+@router.post("/refresh_token/", response_model=TokenSchema)
+async def refresh_token(payload=Depends(validate_refresh_token)):
+    new_access_token = create_refresh_token(payload.get('sub'))
+    return {"access_token": new_access_token, "refresh_token": refresh_token}
+
+
+@router.get("/protected_route/")
+async def protected_route(payload=Depends(validate_access_token)):
+    user_identity = payload.get("sub")
+    return {"message": f"Hello, {user_identity}! This is a protected route."}

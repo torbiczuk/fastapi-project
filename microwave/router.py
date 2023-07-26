@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from redis import Redis
 
-from auth.dependencies import get_current_user
-from auth.schemas import SystemUser
+from auth.dependencies import validate_access_token
 from microwave.schemas import MicrowaveState, PowerRequest, CounterRequest
 
 router = APIRouter()
@@ -65,6 +64,6 @@ def counter(request: CounterRequest, microwave_state: MicrowaveState = Depends(g
 
 
 @router.put("/cancel/", response_model=MicrowaveState)
-def cancel(user: SystemUser = Depends(get_current_user)):
+def cancel(payload=Depends(validate_access_token)):
     state = MicrowaveState()
     return update_microwave_state(state)

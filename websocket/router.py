@@ -1,9 +1,9 @@
 import asyncio
-
-from fastapi import APIRouter, Depends, WebSocket
+from auth.dependencies import validate_websocket_jwt_token
+from fastapi import APIRouter, Depends, WebSocket, HTTPException
 from redis import Redis
 
-from microwave.schemas import MicrowaveState
+from websocket.schemas import MicrowaveState, ClientMessage
 
 router = APIRouter()
 WEBSOCKETS_OPEN = set()
@@ -46,6 +46,7 @@ async def broadcast_status(redis):
             print()
 
 
+@router.websocket("/microwave/{token}")
 @router.websocket("/microwave/")
 async def websocket_endpoint(websocket: WebSocket, redis: Redis = Depends(get_redis_client)):
     await websocket.accept()
@@ -57,7 +58,17 @@ async def websocket_endpoint(websocket: WebSocket, redis: Redis = Depends(get_re
 
         # receive from client
         message = await websocket.receive_text()
-        print(message)
-        new_state = MicrowaveState.model_validate_json(message)
+        clean_data = ClientMessage.model_validate_json(message)
+        if clean_data.action == 'cancel':
+            try:
+                validate_websocket_jwt_token(clean_data.access_token)
+                print(clean_data.access_token)
+            except HTTPException:
+                print('Invalid token')
+                continue
+            new_state = MicrowaveState()
+        else:
+            print(message)
+            new_state = MicrowaveState.model_validate_json(message)
         print(new_state)
         update_microwave_state(new_state)
